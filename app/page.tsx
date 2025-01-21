@@ -1,38 +1,48 @@
 "use client";
+import React, { useEffect, useState } from 'react'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements } from '@stripe/react-stripe-js'
+import CheckoutForm from '@/components/CheckoutForm'
 
-import CheckoutPage from "@/components/CheckoutPage";
-import convertToSubcurrency from "@/utils/convertToSubcurrency";
-import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = loadStripe(publishableKey!);
 
-if (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY === undefined) {
-  throw new Error("Missing Stripe publishable key");
-}
+export default function StripeExamplePage() {
+  const [clientSecret, setClientSecret] = useState(null);
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+  useEffect(() => {
+    // Fetch the client secret from your backend
+    const fetchClientSecret = async () => {
+      const response = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ amount: 1000, currency: 'usd' })
+      });
 
+      const data = await response.json();
+      setClientSecret(data.clientSecret);
+    }
 
-export default function Home() {
-  const amount = 49.99;
+    fetchClientSecret();
+  }, []);
+
+  if (!clientSecret) {
+    return <div>Loading Payment Information...</div>;
+  }
+
   return (
-    <main className="max-w-6xl mx-auto p-10 text-white text-center border m-10 rounded-md bg-gradient-to-tr from-blue-500 to-purple-500">
-      <div className="mb-10">
-        <h1 className="text-4xl font-extra bold mb-2">John</h1>
-        <h2 className="text-2xl">
-          has requested
-          <span className="font-bold"> ${amount}</span>
-        </h2>
-      </div>
+    <div className='w-full flex flex-col items-center justify-center'>
+      <h1 className='text-3xl font-bold my-10'>Stripe Example Page</h1>
 
-      <Elements stripe={stripePromise}>
-        <CheckoutPage amount={amount} options={
-          {
-            mode: 'payment',
-            amount: convertToSubcurrency(amount), // cents
-            currency: 'usd',
-          }
-        } />
+      <Elements stripe={stripePromise} options={{
+        clientSecret,
+        externalPaymentMethodTypes: ['external_paysafecard'],
+      }}>
+        <CheckoutForm />
       </Elements>
-    </main>
-  );
+    </div>
+  )
 }
+
