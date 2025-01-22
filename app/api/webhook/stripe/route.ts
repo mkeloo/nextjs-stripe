@@ -62,11 +62,41 @@ export async function POST(req: Request) {
             await onPaymentFailed(event.data.object as Stripe.PaymentIntent);
             break;
         case "invoice.paid":
-            await onInvoicePaid(event.data.object as Stripe.Invoice);
+            const invoice = event.data.object as Stripe.Invoice;
+            const invoiceLink = invoice.metadata?.url;
+
+            if (!invoiceLink) {
+                console.error("Invoice metadata is missing url");
+                return NextResponse.json(
+                    { error: "Invoice metadata is missing url" },
+                    { status: 500 }
+                );
+            }
+
+            // Send the invoice data to your server
+            await fetch(`${process.env.SITE_URL}/invoice-data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    invoiceId: invoice.id,
+                    invoiceLink,
+                    invoiceStatus: invoice.metadata?.status, // Add the status if available
+                }),
+            });
+
+            await onInvoicePaid(invoice);
             break;
         case "invoice.payment_failed":
             await onInvoicePaymentFailed(event.data.object as Stripe.Invoice);
             break;
+        case "charge.updated":
+            await onChargeUpdated(event.data.object as Stripe.Charge);
+            break; // Add this line
+        case "charge.succeeded":
+            await onChargeSucceeded(event.data.object as Stripe.Charge);
+            break; // Add this line
         default:
             console.log(`Unhandled event type: ${event.type}`);
     }
@@ -89,4 +119,12 @@ async function onInvoicePaid(invoice: Stripe.Invoice) {
 
 async function onInvoicePaymentFailed(invoice: Stripe.Invoice) {
     console.log(`❌ Invoice ${invoice.id} payment failed`);
+}
+
+async function onChargeUpdated(charge: Stripe.Charge) {
+    console.log(`💸 Charge ${charge.id} was updated`);
+}
+
+async function onChargeSucceeded(charge: Stripe.Charge) {
+    console.log(`💸 Charge ${charge.id} was succeeded`);
 }
