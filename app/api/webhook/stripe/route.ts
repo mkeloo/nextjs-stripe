@@ -96,6 +96,23 @@ export async function POST(req: Request) {
             break; // Add this line
         case "charge.succeeded":
             await onChargeSucceeded(event.data.object as Stripe.Charge);
+            // Send the receipt URL to your server
+            const receiptUrl = event.data.object.receipt_url;
+            console.log(`📦 Receipt URL: ${receiptUrl}`);
+
+            try {
+                await fetch(`${process.env.SITE_URL}/receipt-url`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        receiptUrl,
+                    }),
+                });
+            } catch (error) {
+                console.error(`Error sending receipt URL to server: ${error}`);
+            }
             break; // Add this line
         default:
             console.log(`Unhandled event type: ${event.type}`);
